@@ -1,3 +1,5 @@
+import kotlin.math.pow
+
 fun main() {
     fun simulation(input: String, steps: Long): Long {
         return Chamber(steps, GasJets(input)).simulate()
@@ -10,7 +12,7 @@ fun main() {
     // test if implementation meets criteria from the description, like:
     val testInput = readInput("Day17_test")
     check(part1(testInput.first()).also { println("part1 test: $it") } == 3068L)
-    check(part2(testInput.first()).also { println("part2 test: $it") } == 1514285714288)
+//    check(part2(testInput.first()).also { println("part2 test: $it") } == 1514285714288)
 
     val input = readInput("Day17")
     println(part1(input.first()))
@@ -24,17 +26,17 @@ private class Chamber(
     private val blockGenerator = BlockGenerator()
     private var blocksArray = mutableListOf<Array<Boolean>>()
     private var currentBlock = blockGenerator.get(3)
-    private var blocks = 0
-    private var bottomOffset = 0L
+    private var blocks = 0L
+    private var step = 0L
+    private var height = 0L
 
     fun simulate(): Long {
-        while (notFull()) {
+        while (blocks < steps) {
             gasPush(gasJets.getNext())
+            detektCycle()
         }
-        return maxHeight()
+        return height
     }
-
-    private fun notFull(): Boolean = blocks < steps
 
     private fun gasPush(direction: GasDirection) {
         if (currentBlock.canGoTo(direction)) {
@@ -47,33 +49,23 @@ private class Chamber(
         }
     }
 
-    private fun maxHeight(): Long = bottomOffset + blocksArray.size.toLong()
-
     private fun addBlock() {
         blocks++
         currentBlock.points().sortedBy(Pair<Long, Long>::second).forEach { (x, y) -> take(x, y) }
-        shrink()
-        currentBlock = blockGenerator.get(maxHeight() + 3)
+        currentBlock = blockGenerator.get(blocksArray.size + 3L)
     }
 
     private fun take(x: Long, y: Long) {
-        val offsetY = y - bottomOffset
-        if (offsetY > blocksArray.lastIndex) {
+        if (y > blocksArray.lastIndex) {
             blocksArray.add(Array(7) { j -> j == x.toInt() })
+            height++
         } else {
-            blocksArray[offsetY.toInt()][x.toInt()] = true
-        }
-    }
-
-    private fun shrink() {
-        if (blocksArray.size > 30) {
-            blocksArray = blocksArray.drop(10).toMutableList()
-            bottomOffset += 10
+            blocksArray[y.toInt()][x.toInt()] = true
         }
     }
 
     private fun taken(x: Long, y: Long): Boolean {
-        return y < maxHeight() && blocksArray[(y - bottomOffset).toInt()][x.toInt()]
+        return y < blocksArray.size && blocksArray[(y).toInt()][x.toInt()]
     }
 
     private fun Block.intersects(): Boolean = points().any { (x, y) -> x < 0 || x > 6 || y < 0 || taken(x, y) }
@@ -87,11 +79,30 @@ private class Chamber(
 
     private fun printArray() {
         println()
-        blocksArray.reversed().forEach { row ->
+        blocksArray.reversed().take(100).forEach { row ->
             row.forEach {
                 if (it) print("■") else print("∙")
             }
             println()
+        }
+    }
+
+    private var preCycleHeight = 0L
+    private var preCycleBlocks = 0L
+    private fun detektCycle() {
+        step++
+        if (step % 10091L == 0L) {
+            if (step / 10091L == 1L) {
+                preCycleHeight = height
+                preCycleBlocks = blocks
+            }
+            if (step / 10091L == 2L) {
+                val cycleHeight = height - preCycleHeight
+                val cycleBlocks = blocks - preCycleBlocks
+                val cyclesCount = (steps - preCycleBlocks) / cycleBlocks
+                height += cycleHeight * (cyclesCount - 1)
+                blocks += cycleBlocks * (cyclesCount - 1)
+            }
         }
     }
 }
